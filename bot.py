@@ -56,7 +56,7 @@ def login():
             return cl
     except Exception as e:
         print(f"⚠️ Session load failed: {e}")
-        # Continue with fresh login
+        print("ℹ️ Proceeding with fresh login...")
 
     # Fresh login with 2FA handling
     try:
@@ -131,32 +131,53 @@ def update_admins(thread):
     bot_data["threads"][thread_id]["admins"] = thread.admin_user_ids
     save_data()
 
-# Handle new members
-def check_new_members(thread):
+# Handle member changes (new members and members leaving)
+def check_member_changes(thread):
     try:
         thread_id = thread.id
         ensure_thread(thread_id)
+        print(f"ℹ️ Checking member changes for thread: {thread_id}")
     
         old_members = set(bot_data["threads"][thread_id]["members"])
         current_members = set(user.pk for user in thread.users)
-        print(f"👥 New members: {current_members - old_members}")
+        
+        print(f"📊 Old members count: {len(old_members)}, Current members count: {len(current_members)}")
+
+        # Find new members who joined
         new_members = current_members - old_members
         if new_members:
+            print(f"👥 New members joined: {len(new_members)} users")
             for user in thread.users:
                 if user.pk in new_members:
                     try:
                         welcome_template = bot_data["threads"][thread_id]["welcome_message"]
                         msg = welcome_template.format(user.username)
+                        print(f"🤝 Welcoming new user: @{user.username}")
                         cl.direct_send(text=msg, thread_ids=[thread_id])
                         safe_sleep(3, 6)
                     except Exception as e:
-                        cl.direct_send(text = f"⚠️ Error welcoming user. Contact @{OWNER_USERNAME}", thread_ids=[thread_id])
+                        print(f"❌ Error welcoming user @{user.username}: {e}")
+                        cl.direct_send(text=f"⚠️ Error welcoming user. Contact @{OWNER_USERNAME}", thread_ids=[thread_id])
 
+        # Find members who left (for tracking purposes, no action taken)
+        left_members = old_members - current_members
+        if left_members:
+            print(f"📤 Members left: {len(left_members)} users")
+            # Log usernames of members who left if possible
+            try:
+                for uid in left_members:
+                    user = cl.user_info(uid)
+                    print(f"   - @{user.username} left the group")
+            except Exception as e:
+                print(f"ℹ️ Could not fetch details for {len(left_members)} members who left")
+
+        # Update the member list with current members
         bot_data["threads"][thread_id]["members"] = list(current_members)
-        print(f"👥 Updated members: {bot_data['threads'][thread_id]['members']}")
+        print(f"✅ Updated member list for thread {thread_id}")
         save_data()
+        
     except Exception as e:
-        pass
+        print(f"❌ Error in check_member_changes: {e}")
 
 # Command handler
 def handle_command(thread, sender_id, text):
@@ -224,7 +245,7 @@ def run_bot():
                     continue
 
                 ensure_thread(thread.id)
-                check_new_members(thread)
+                check_member_changes(thread)
 
                 # Get messages and filter out already processed ones
                 messages = cl.direct_messages(thread.id)
