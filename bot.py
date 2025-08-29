@@ -147,8 +147,8 @@ def check_new_members(thread):
                     try:
                         welcome_template = bot_data["threads"][thread_id]["welcome_message"]
                         msg = welcome_template.format(user.username)
-                        # cl.direct_send(text=msg, thread_ids=[thread_id])
-                        # safe_sleep(3, 6)
+                        cl.direct_send(text=msg, thread_ids=[thread_id])
+                        safe_sleep(3, 6)
                     except Exception as e:
                         cl.direct_send(text = f"⚠️ Error welcoming user. Contact @{OWNER_USERNAME}", thread_ids=[thread_id])
 
